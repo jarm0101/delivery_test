@@ -49,7 +49,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function provider()
     {
-        return $this->hasOne(Worker::class);
+        return $this->hasOne(Provider::class);
     }
     public function hasRole($roleName)
     {
