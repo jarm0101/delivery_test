@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Filters\DeliveryQueryFilter;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreDeliveryRequest;
 use App\Http\Requests\UpdateDeliveryRequest;
@@ -10,7 +9,6 @@ use App\Http\Resources\DeliveryResource;
 use App\HttpResponses;
 use App\Models\Delivery;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
 
@@ -23,17 +21,18 @@ class DeliveryController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->get('per_page', 10);
-        $query = Delivery::with('provider.user', 'worker.user');
-        $user = Auth::user();
+        $query = Delivery::UserRole()
+            ->JoinProvider()
+            ->ProviderName($request->provider_name)
+            ->RecieverName($request->reciver_name)
+            ->Code($request->code)
+            ->StartDate($request->start_date)
+            ->EndDate($request->end_date)
+            ->with('provider.user', 'worker.user');
 
-        if ($user->hasRole('worker')) {
-            $query->where('worker_id', $user->worker->id);
+        if ($request->order_by) {
+            $query->orderBy($request->order_by, $request->direction ?? 'asc');
         }
-
-        if ($user->hasRole('provider')) {
-            $query->where('provider_id', $user->provider->id);
-        }
-        $query = DeliveryQueryFilter::apply($query, $request);
 
         return $this->success(
             [
@@ -103,10 +102,14 @@ class DeliveryController extends Controller
 
     public function exportPdf(Request $request)
     {
-        $query = Delivery::with(['provider.user', 'worker.user']);
-
-
-        $query = DeliveryQueryFilter::apply($query, $request);
+        $query = Delivery::UserRole()
+            ->JoinProvider()
+            ->ProviderName($request->provider_name)
+            ->RecieverName($request->reciver_name)
+            ->Code($request->code)
+            ->StartDate($request->start_date)
+            ->EndDate($request->end_date)
+            ->with('provider.user', 'worker.user');
 
         $deliveriesGrouped = $query->get()->groupBy(function ($delivery) {
             return $delivery->provider->user->name;
